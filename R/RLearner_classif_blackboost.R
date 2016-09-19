@@ -16,17 +16,17 @@ makeRLearner.classif.blackboost = function() {
       makeLogicalLearnerParam(id = "stopintern", default = FALSE),
       # 'risk' and 'stopintern' will be kept for completeness sake
       makeLogicalLearnerParam(id = "trace", default = FALSE, tunable = FALSE),
-      makeDiscreteLearnerParam(id = "teststat", default = "quad", values = c("quad", "max")),
-      makeDiscreteLearnerParam(id = "testtype", default = "Bonferroni", values = c("Bonferroni", "MonteCarlo", "Univariate", "Teststatistic")),
-      makeNumericLearnerParam(id = "mincriterion", default = 0.95, lower = 0, upper = 1),
+      makeDiscreteLearnerParam(id = "teststat", default = "max", values = c("quad", "max")),
+      makeDiscreteLearnerParam(id = "testtype", default = "Teststatistic", values = c("Bonferroni", "MonteCarlo", "Univariate", "Teststatistic")),
+      makeNumericLearnerParam(id = "mincriterion", default = 0, lower = 0, upper = 1),
       makeIntegerLearnerParam(id = "minsplit", default = 20L, lower = 1L),
       makeIntegerLearnerParam(id = "minbucket", default = 7L, lower = 1L),
-      makeLogicalLearnerParam(id = "stump", default = FALSE),
+      makeLogicalLearnerParam(id = "stump", default = TRUE),
       makeIntegerLearnerParam(id = "nresample", default = 9999L, lower = 1L, requires = quote(testtype=="MonteCarlo")),
       makeIntegerLearnerParam(id = "maxsurrogate", default = 0L, lower = 0L),
       makeIntegerLearnerParam(id = "mtry", default = 0L, lower = 0L),
-      makeLogicalLearnerParam(id = "savesplitstats", default = TRUE, tunable = FALSE),
-      makeIntegerLearnerParam(id = "maxdepth", default = 0L, lower = 0L)
+      makeLogicalLearnerParam(id = "savesplitstats", default = FALSE, tunable = FALSE),
+      makeIntegerLearnerParam(id = "maxdepth", default = 2L, lower = 0L)
     ),
     par.vals = list(family = "Binomial"),
     properties = c("twoclass", "missings", "numerics", "factors", "prob", "weights"),
@@ -37,9 +37,12 @@ makeRLearner.classif.blackboost = function() {
 }
 
 #' @export
-trainLearner.classif.blackboost = function(.learner, .task, .subset, .weights = NULL, mstop, nu, risk, stopintern, trace, teststat, testtype, mincriterion, maxdepth, stump, family, custom.family.definition, nuirange = c(-0.5,-1), offrange = c(-5,5), Binomial.link = "logit", ...) {
+trainLearner.classif.blackboost = function(.learner, .task, .subset, .weights = NULL, mstop, nu, risk, stopintern, trace, teststat, testtype, mincriterion, minsplit, minbucket, stump, nresample, maxsurrogate, mtry, savesplitstats, maxdepth, family, custom.family.definition, nuirange = c(-0.5,-1), offrange = c(-5,5), Binomial.link = "logit", ...) {
   ctrl = learnerArgsToControl(mboost::boost_control, mstop, nu, risk, stopintern, trace)
-  tc = learnerArgsToControl(party::ctree_control, teststat, testtype, mincriterion, maxdepth, stump)
+  makeBoostTreeControl = function(teststat = "max", testtype = "Teststatistic", mincriterion = 0, maxdepth = 2, savesplitstats = FALSE, minsplit = minsplit, minbucket = minbucket, stump = stump, nresample = nresample, maxsurrogate = maxsurrogate){
+    party::ctree_control(teststat = teststat, testtype = testtype, mincriterion = mincriterion, maxdepth = maxdepth, ...)
+  }
+  tc = learnerArgsToControl(makeBoostTreeControl)
   f = getTaskFormula(.task)
   family = switch(family,
     Binomial = mboost::Binomial(link = Binomial.link),
